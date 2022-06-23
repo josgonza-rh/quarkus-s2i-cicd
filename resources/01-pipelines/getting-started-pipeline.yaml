@@ -1,0 +1,80 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: build-and-deploy-getting-started-app
+  labels:
+    app.kubernetes.io/instance: getting-started-app
+    pipeline.openshift.io/runtime: php
+    pipeline.openshift.io/type: kubernetes
+spec:   
+  params:
+    - default: getting-started
+      name: APP_NAME
+      type: string
+      description: name of the deployment to be patched
+    - name: GIT_REPO
+      type: string
+      description: url of the git repo for the code of deployment
+    - default: main
+      name: GIT_REVISION
+      type: string
+      description: revision to be used from repo of the code for deployment
+    - default: image-registry.openshift-image-registry.svc:5000/$(context.pipelineRun.namespace)/getting-started
+      name: IMAGE_NAME
+      type: string
+      description: image to be built from the code
+    - default: .
+      name: PATH_CONTEXT
+      type: string
+      description: Path for S2I
+    - default: openjdk-11-ubi8
+      name: VERSION
+      type: string
+      description: S2I image version
+  tasks:
+    - name: fetch-repository
+      params:
+        - name: url
+          value: $(params.GIT_REPO)
+        - name: revision
+          value: $(params.GIT_REVISION)
+        - name: deleteExisting
+          value: 'true'
+      taskRef:
+        kind: ClusterTask
+        name: git-clone
+      workspaces:
+        - name: output
+          workspace: workspace
+    - name: build
+      params:
+        - name: IMAGE
+          value: $(params.IMAGE_NAME)
+        - name: TLSVERIFY
+          value: 'false'
+        - name: PATH_CONTEXT
+          value: $(params.PATH_CONTEXT)
+        - name: VERSION
+          value: $(params.VERSION)
+      runAfter:
+        - fetch-repository
+      taskRef:
+        kind: ClusterTask
+        name: s2i-java
+      workspaces:
+        - name: source
+          workspace: workspace
+    - name: deploy
+      params:
+        - name: ARGS
+          value:
+            - rollout
+            - status
+            - dc/$(params.APP_NAME)
+      runAfter:
+        - build
+      taskRef:
+        kind: ClusterTask
+        name: openshift-client
+  workspaces:
+    - name: workspace
