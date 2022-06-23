@@ -4,7 +4,7 @@ metadata:
   name: build-and-deploy-getting-started-app
   labels:
     app.kubernetes.io/instance: getting-started-app
-    pipeline.openshift.io/runtime: php
+    pipeline.openshift.io/runtime: quarkus
     pipeline.openshift.io/type: kubernetes
 spec:   
   params:
@@ -12,7 +12,8 @@ spec:
       name: APP_NAME
       type: string
       description: name of the deployment to be patched
-    - name: GIT_REPO
+    - default: https://github.com/josgonza-rh/quarkus-s2i-cicd
+      name: GIT_REPO
       type: string
       description: url of the git repo for the code of deployment
     - default: main
